@@ -1,0 +1,15 @@
+services:
+  backend:
+    build: ./backend
+    environment:
+      ALLOWED_ORIGINS: http://localhost:5173
+      TERRAIN_DEM_PATH: /data/dem/terrain.tif
+    volumes:
+      - ./data/dem:/data/dem:ro
+    ports: ["8000:8000"]
+  frontend:
+    build: ./frontend
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000/api
+    ports: ["5173:5173"]
+    depends_on: [backend]

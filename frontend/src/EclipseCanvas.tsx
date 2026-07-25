@@ -1,0 +1,7 @@
+import { useEffect, useRef } from 'react';
+import type { Sample } from './types';
+export function EclipseCanvas({sample}:{sample?:Sample}) {
+ const ref=useRef<HTMLCanvasElement>(null);
+ useEffect(()=>{ const c=ref.current; if(!c||!sample)return; const ctx=c.getContext('2d'); if(!ctx)return; const w=c.width=c.clientWidth*devicePixelRatio,h=c.height=c.clientHeight*devicePixelRatio; ctx.scale(devicePixelRatio,devicePixelRatio); const W=c.clientWidth,H=c.clientHeight, scale=Math.min(W,H)*.28; const x=W/2,y=H/2; ctx.fillStyle='#08111f';ctx.fillRect(0,0,W,H); const sr=scale, mr=scale*sample.moon.angular_radius_deg/sample.sun.angular_radius_deg; const dx=scale*sample.moon.offset_right_deg/sample.sun.angular_radius_deg,dy=-scale*sample.moon.offset_up_deg/sample.sun.angular_radius_deg; const sun=ctx.createRadialGradient(x-scale*.2,y-scale*.2,scale*.1,x,y,sr);sun.addColorStop(0,'#fff9d1');sun.addColorStop(1,'#f6bd42');ctx.fillStyle=sun;ctx.beginPath();ctx.arc(x,y,sr,0,Math.PI*2);ctx.fill();ctx.fillStyle='#03060b';ctx.beginPath();ctx.arc(x+dx,y+dy,mr,0,Math.PI*2);ctx.fill();ctx.fillStyle='#d7e6ff';ctx.font='14px system-ui';ctx.fillText(new Date(sample.time.local).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}),16,28);ctx.fillText(`Obscuration ${sample.obscuration_percent.toFixed(2)}%`,16,50); },[sample]);
+ return <canvas ref={ref} className="eclipse-canvas" aria-label="Astronomically scaled Sun and Moon eclipse diagram"/>;
+}

@@ -1,0 +1,8 @@
+{
+  "horizon_profile": [
+    {"azimuth_deg": 240, "altitude_deg": 3.2},
+    {"azimuth_deg": 250, "altitude_deg": 4.0},
+    {"azimuth_deg": 260, "altitude_deg": 2.5}
+  ],
+  "obstacles": [{"name":"Example roofline","azimuth_start_deg":246,"azimuth_end_deg":253,"bottom_altitude_deg":0,"top_altitude_deg":8,"enabled":true}]
+}
