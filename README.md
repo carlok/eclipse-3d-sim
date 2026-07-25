@@ -23,6 +23,8 @@ Magnitude is the fraction of solar diameter eclipsed. Obscuration is the fractio
 
 Terrain data cannot model trees, buildings, cranes, or temporary objects—add those using the obstacle editor. This app is not a substitute for an on-site inspection.
 
+After **Find best clear time**, the simulator also compares flat-horizon sunset with terrain/obstacle sunset using the apparent lower solar limb. It warns when the combined horizon hides the full solar disc before astronomical sunset.
+
 **Never observe the Sun directly without certified solar viewing protection, except during the brief total phase at a location inside the path of totality. High obscuration does not make unfiltered viewing safe.**
 
 ## Demonstration

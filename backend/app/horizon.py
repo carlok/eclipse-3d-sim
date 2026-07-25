@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math, os
+from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 import numpy as np
 from .models import AngularObstacle, HorizonPoint
@@ -34,6 +36,39 @@ def classify(sun: dict, horizon_altitude: float, margin: float) -> tuple[str, di
     if clearance['lower_limb_clearance_deg'] >= 0: return 'clear', clearance
     if clearance['upper_limb_clearance_deg'] <= 0: return 'fully_blocked', clearance
     return 'partially_blocked', clearance
+
+def _sunset_crossing(latitude: float, longitude: float, elevation_m: float, zone: ZoneInfo, profile: list[HorizonPoint], obstacles: list[AngularObstacle], margin: float, day: datetime) -> dict | None:
+    from .astronomy import state
+    start=datetime(day.year,day.month,day.day,tzinfo=zone).astimezone(UTC)
+    previous=state(latitude,longitude,elevation_m,start,zone)
+    previous_clearance=previous['sun']['lower_limb_altitude_deg']-effective_horizon(previous['sun']['azimuth_deg'],profile,obstacles)-margin
+    for minute in range(1,24*60+1):
+        current_time=start+timedelta(minutes=minute)
+        current=state(latitude,longitude,elevation_m,current_time,zone)
+        current_clearance=current['sun']['lower_limb_altitude_deg']-effective_horizon(current['sun']['azimuth_deg'],profile,obstacles)-margin
+        if previous_clearance >= 0 > current_clearance:
+            low, high=start+timedelta(minutes=minute-1), current_time
+            for _ in range(12):
+                middle=low+(high-low)/2
+                probe=state(latitude,longitude,elevation_m,middle,zone)
+                clearance=probe['sun']['lower_limb_altitude_deg']-effective_horizon(probe['sun']['azimuth_deg'],profile,obstacles)-margin
+                if clearance >= 0: low=middle
+                else: high=middle
+            result=state(latitude,longitude,elevation_m,high,zone)
+            return {**result['time'],'sun_azimuth_deg':result['sun']['azimuth_deg'],'horizon_altitude_deg':effective_horizon(result['sun']['azimuth_deg'],profile,obstacles)}
+        previous, previous_clearance=current, current_clearance
+    return None
+
+def sunset_analysis(latitude: float, longitude: float, elevation_m: float, zone: ZoneInfo, profile: list[HorizonPoint], obstacles: list[AngularObstacle], safety_margin_deg: float, day: datetime) -> dict:
+    flat=_sunset_crossing(latitude,longitude,elevation_m,zone,[],[],0,day)
+    terrain=_sunset_crossing(latitude,longitude,elevation_m,zone,profile,obstacles,safety_margin_deg,day)
+    difference=None if not flat or not terrain else round((datetime.fromisoformat(terrain['utc'])-datetime.fromisoformat(flat['utc'])).total_seconds())
+    warning=None
+    if difference is not None and difference <= -60:
+        warning=f'Terrain and obstacles hide the full solar disc {abs(difference)//60} minutes before flat-horizon sunset.'
+    elif terrain is None and flat is not None:
+        warning='Terrain and obstacles keep the Sun blocked through the flat-horizon sunset.'
+    return {'flat_horizon_sunset':flat,'terrain_horizon_sunset':terrain,'difference_seconds':difference,'warning':warning}
 
 def destination(latitude: float, longitude: float, bearing: float, distance_m: float) -> tuple[float,float]:
     phi, lam, theta, delta = map(math.radians, (latitude, longitude, bearing, distance_m/EARTH_RADIUS_M*180/math.pi))

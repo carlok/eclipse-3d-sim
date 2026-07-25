@@ -14,3 +14,11 @@ def test_horizon_analysis_handles_unsampled_maximum():
     r=client.post('/api/eclipse/2026-08-12/horizon-analysis',json={'latitude':43,'longitude':-4,'timezone':'Europe/Madrid','sample_seconds':17,'horizon_profile':[],'obstacles':[]})
     assert r.status_code==200
     assert r.json()['astronomical_maximum_visibility']['status'] in {'clear','partially_blocked','fully_blocked','below_astronomical_horizon'}
+
+def test_horizon_analysis_reports_terrain_adjusted_sunset():
+    r=client.post('/api/eclipse/2026-08-12/horizon-analysis',json={'latitude':43,'longitude':-4,'timezone':'Europe/Madrid','sample_seconds':60,'horizon_profile':[{'azimuth_deg':0,'altitude_deg':12},{'azimuth_deg':359,'altitude_deg':12}],'obstacles':[]})
+    assert r.status_code==200
+    sunset=r.json()['sunset']
+    assert sunset['flat_horizon_sunset'] is not None
+    assert sunset['terrain_horizon_sunset'] is not None
+    assert sunset['difference_seconds'] < 0

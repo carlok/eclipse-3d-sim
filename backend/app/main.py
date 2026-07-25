@@ -2,10 +2,11 @@ from __future__ import annotations
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from .astronomy import EclipseNotVisible, report, state, timezone_for
-from .horizon import classify, effective_horizon, terrain_profile
+from .horizon import classify, effective_horizon, sunset_analysis, terrain_profile
 from .opentopography import TerrainDownloadError, download_cop30
 from .models import HorizonAnalysisRequest, ReportRequest, StateRequest, TerrainRequest
 import os
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv('backend/.env')
@@ -59,7 +60,8 @@ def horizon_analysis(request: HorizonAnalysisRequest):
     maximum=result['maximum']
     maximum_horizon=effective_horizon(maximum['sun']['azimuth_deg'],request.horizon_profile,request.obstacles)
     maximum_status, maximum_clearance=classify(maximum['sun'],maximum_horizon,request.safety_margin_deg)
-    return {'best_clear_sample':max(clear,key=lambda x:x['obscuration_fraction']) if clear else None,'best_partially_visible_sample':max(partial,key=lambda x:x['obscuration_fraction']) if partial else None,'astronomical_maximum_visibility':{'status':maximum_status,**maximum_clearance},'track':analyzed}
+    sunset=sunset_analysis(request.latitude,request.longitude,request.elevation_m,timezone_for(request.latitude,request.longitude,request.timezone),request.horizon_profile,request.obstacles,request.safety_margin_deg,datetime.fromisoformat(result['event']['date']))
+    return {'best_clear_sample':max(clear,key=lambda x:x['obscuration_fraction']) if clear else None,'best_partially_visible_sample':max(partial,key=lambda x:x['obscuration_fraction']) if partial else None,'astronomical_maximum_visibility':{'status':maximum_status,**maximum_clearance},'sunset':sunset,'track':analyzed}
 
 @app.post('/api/eclipse/2026-08-12/terrain-horizon')
 def terrain(request: TerrainRequest):
