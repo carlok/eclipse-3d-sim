@@ -9,6 +9,28 @@ from .models import AngularObstacle, HorizonPoint
 
 EARTH_RADIUS_M = 6_371_000
 
+def _terrain_cache_dir() -> Path:
+    return Path(os.getenv('TERRAIN_CACHE_DIR', str(Path(__file__).resolve().parents[2] / 'data/dem/cache'))).resolve()
+
+def _resolve_dem_path(path: str) -> Path:
+    candidate = Path(path).expanduser().resolve()
+    allowed_roots = [_terrain_cache_dir()]
+    configured = os.environ.get('TERRAIN_DEM_PATH')
+    if configured:
+        configured_path = Path(configured).expanduser().resolve()
+        allowed_roots.extend([configured_path, configured_path.parent])
+    for root in allowed_roots:
+        try:
+            candidate.relative_to(root)
+            break
+        except ValueError:
+            continue
+    else:
+        raise FileNotFoundError('DEM path is outside the allowed terrain directories.')
+    if not candidate.is_file():
+        raise FileNotFoundError('No local DEM is configured. Set TERRAIN_DEM_PATH to a GeoTIFF.')
+    return candidate
+
 def circular_interpolate(points: list[HorizonPoint], azimuth: float) -> float:
     if not points: return 0.0
     samples = sorted((p.azimuth_deg % 360, p.altitude_deg) for p in points)
@@ -77,8 +99,9 @@ def destination(latitude: float, longitude: float, bearing: float, distance_m: f
     return math.degrees(phi2), (math.degrees(lam2)+540)%360-180
 
 def terrain_profile(latitude: float, longitude: float, observer_m: float, max_distance_km: float, azimuth_step_deg: float, distance_step_m: float, dem_path: str | None = None) -> tuple[list[dict],dict]:
-    path = dem_path or os.environ.get('TERRAIN_DEM_PATH')
-    if not path or not Path(path).is_file(): raise FileNotFoundError('No local DEM is configured. Set TERRAIN_DEM_PATH to a GeoTIFF.')
+    configured = dem_path or os.environ.get('TERRAIN_DEM_PATH')
+    if not configured: raise FileNotFoundError('No local DEM is configured. Set TERRAIN_DEM_PATH to a GeoTIFF.')
+    path = _resolve_dem_path(configured)
     import rasterio
     profile=[]
     with rasterio.open(path) as dataset:
@@ -94,4 +117,4 @@ def terrain_profile(latitude: float, longitude: float, observer_m: float, max_di
                     maximum=max(maximum,angle)
                 except Exception: continue
             profile.append({'azimuth_deg':round(float(azimuth),6),'altitude_deg':round(maximum,6)})
-    return profile, {'provider':'local_geotiff','path':Path(path).name,'max_distance_km':max_distance_km,'azimuth_step_deg':azimuth_step_deg}
+    return profile, {'provider':'local_geotiff','path':path.name,'max_distance_km':max_distance_km,'azimuth_step_deg':azimuth_step_deg}
